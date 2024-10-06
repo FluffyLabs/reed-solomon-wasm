@@ -41,6 +41,26 @@ impl ShardsCollection {
 
         Self { length, shard_len, indices, data }
     }
+
+    /// Extract the `indices` from this shards container.
+    ///
+    /// Should be called on the JS side to avoid copying.
+    /// NOTE that subsequent calls to that method will return `None`.
+    #[wasm_bindgen]
+    pub fn take_indices(&mut self) -> Option<js_sys::Uint16Array> {
+        self.indices.take()
+    }
+
+    /// Take the underlying `data` to the JS side.
+    ///
+    /// NOTE this object is destroyed after the data is consumed,
+    /// so make sure to [`take_indices`] first.
+    #[wasm_bindgen]
+    pub fn take_data(self) -> js_sys::Uint8Array {
+        self.data
+    }
+
+// THESE METHODS SHOULD RATHER BE IMPLEMENTED IN JS!
 /*
     #[wasm_bindgen(getter)]
     pub fn len(&self) -> usize {
