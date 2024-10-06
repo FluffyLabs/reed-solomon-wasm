@@ -10,7 +10,7 @@ use web_sys::js_sys;
 /// are passed as one big vector of bytes.
 /// It's assumed that every shard has the same length (`shard_len`).
 /// If the shards are NOT passed in the exact order they were created
-/// it's possible to pass `indices` array. 
+/// it's possible to pass `indices` array.
 /// A value of `indices` array at position `idx` is the shard index
 /// that resides at `[ idx * shard_len .. idx * shard_len + shard_len )`
 /// in `data` array.
@@ -33,13 +33,25 @@ pub struct ShardsCollection {
 #[wasm_bindgen]
 impl ShardsCollection {
     #[wasm_bindgen(constructor)]
-    pub fn new(shard_len: u16, data: js_sys::Uint8Array, indices: Option<js_sys::Uint16Array>) -> Self {
+    pub fn new(
+        shard_len: u16,
+        data: js_sys::Uint8Array,
+        indices: Option<js_sys::Uint16Array>,
+    ) -> Self {
         let length = data.length() / shard_len as u32;
         if let Some(ref indices) = indices {
-            assert!(indices.length() == length, "Mismatching indices and data length.");
+            assert!(
+                indices.length() == length,
+                "Mismatching indices and data length."
+            );
         }
 
-        Self { length, shard_len, indices, data }
+        Self {
+            length,
+            shard_len,
+            indices,
+            data,
+        }
     }
 
     /// Extract the `indices` from this shards container.
@@ -60,28 +72,28 @@ impl ShardsCollection {
         self.data
     }
 
-// THESE METHODS SHOULD RATHER BE IMPLEMENTED IN JS!
-/*
-    #[wasm_bindgen(getter)]
-    pub fn len(&self) -> usize {
-        self.length as usize
-    }
+    // THESE METHODS SHOULD RATHER BE IMPLEMENTED IN JS!
+    /*
+        #[wasm_bindgen(getter)]
+        pub fn len(&self) -> usize {
+            self.length as usize
+        }
 
-    #[wasm_bindgen(getter)]
-    pub fn chunk_at(&self, index: usize) -> js_sys::Uint8Array {
-        let begin = index as u32 * self.shard_len as u32;
-        let end = begin + self.shard_len as u32;
-        self.data.subarray(begin, end)
-    }
+        #[wasm_bindgen(getter)]
+        pub fn chunk_at(&self, index: usize) -> js_sys::Uint8Array {
+            let begin = index as u32 * self.shard_len as u32;
+            let end = begin + self.shard_len as u32;
+            self.data.subarray(begin, end)
+        }
 
-    #[wasm_bindgen(getter)]
-    pub fn chunk_index_at(&self, index: usize) -> u16 {
-        self.indices
-            .as_ref()
-            .map(|v| v.at(index as i32).expect("Out of bounds access to indices."))
-            .unwrap_or(index as u16)
-    }
-*/
+        #[wasm_bindgen(getter)]
+        pub fn chunk_index_at(&self, index: usize) -> u16 {
+            self.indices
+                .as_ref()
+                .map(|v| v.at(index as i32).expect("Out of bounds access to indices."))
+                .unwrap_or(index as u16)
+        }
+    */
 }
 
 /// A Rust equivalent of [`ShardsCollection`].
@@ -101,7 +113,7 @@ impl RsShardsCollection {
     pub fn chunk_at(&self, index: usize) -> &[u8] {
         let begin = index * self.shard_len as usize;
         let end = begin + self.shard_len as usize;
-        
+
         &self.data[begin..end]
     }
 
@@ -110,14 +122,22 @@ impl RsShardsCollection {
     /// This method will default to returning `index`
     /// if the `indices` array is not provided.
     pub fn chunk_index_at(&self, index: usize) -> u16 {
-        self.indices.as_ref().map(|v| v[index]).unwrap_or(index as u16)
+        self.indices
+            .as_ref()
+            .map(|v| v[index])
+            .unwrap_or(index as u16)
     }
 }
 
 /// Copy all of the WASM memory to JS.
 impl From<RsShardsCollection> for ShardsCollection {
     fn from(value: RsShardsCollection) -> Self {
-        let RsShardsCollection { length, shard_len, data, indices } = value;
+        let RsShardsCollection {
+            length,
+            shard_len,
+            data,
+            indices,
+        } = value;
 
         Self {
             length: length as u32,
@@ -131,7 +151,12 @@ impl From<RsShardsCollection> for ShardsCollection {
 /// Copy all of the JS memory to WASM.
 impl From<ShardsCollection> for RsShardsCollection {
     fn from(value: ShardsCollection) -> Self {
-        let ShardsCollection { length, shard_len, data, indices } = value;
+        let ShardsCollection {
+            length,
+            shard_len,
+            data,
+            indices,
+        } = value;
 
         Self {
             length: length as usize,
@@ -150,7 +175,10 @@ fn rs_encode(
     let mut encoder = ReedSolomonEncoder::new(shards.length, recovery_count, shard_bytes)?;
 
     for i in 0..shards.length {
-        assert!(shards.chunk_index_at(i) == i as u16, "Input shards must be in order!");
+        assert!(
+            shards.chunk_index_at(i) == i as u16,
+            "Input shards must be in order!"
+        );
         encoder.add_original_shard(shards.chunk_at(i))?;
     }
 
@@ -164,7 +192,7 @@ fn rs_encode(
         data.extend(chunk);
     }
 
-    Ok(RsShardsCollection{
+    Ok(RsShardsCollection {
         length: recovery_count,
         shard_len: shards.shard_len,
         data,
@@ -213,11 +241,8 @@ pub fn encode(
     shard_bytes: u16,
     shards: ShardsCollection,
 ) -> Result<ShardsCollection, String> {
-    let result = rs_encode(
-        recovery_count as usize, 
-        shard_bytes as usize, 
-        shards.into()
-    ).map_err(|e| e.to_string())?;
+    let result = rs_encode(recovery_count as usize, shard_bytes as usize, shards.into())
+        .map_err(|e| e.to_string())?;
 
     Ok(result.into())
 }
@@ -234,7 +259,8 @@ pub fn decode(
         recovery_count as usize,
         shard_bytes as usize,
         shards.into(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(result.into())
 }
@@ -259,11 +285,7 @@ mod tests {
             indices: None,
         };
 
-        rs_encode(
-            recovery_count,
-            shard_bytes,
-            shards,
-        ).unwrap()
+        rs_encode(recovery_count, shard_bytes, shards).unwrap()
     }
 
     #[test]
@@ -278,11 +300,51 @@ mod tests {
         assert_eq!(encoded.chunk_index_at(2), 5);
         assert_eq!(encoded.chunk_index_at(3), 6);
         assert_eq!(encoded.chunk_index_at(4), 7);
-        assert_eq!(encoded.chunk_at(0), &[156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]);
-        assert_eq!(encoded.chunk_at(1), &[159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12]);
-        assert_eq!(encoded.chunk_at(2), &[158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13]);
-        assert_eq!(encoded.chunk_at(3), &[157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14]);
-        assert_eq!(encoded.chunk_at(4), &[175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]);
+        assert_eq!(
+            encoded.chunk_at(0),
+            &[
+                156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156,
+                156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 15,
+                15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                15, 15, 15, 15, 15, 15, 15, 15, 15, 15
+            ]
+        );
+        assert_eq!(
+            encoded.chunk_at(1),
+            &[
+                159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159,
+                159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 12,
+                12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+                12, 12, 12, 12, 12, 12, 12, 12, 12, 12
+            ]
+        );
+        assert_eq!(
+            encoded.chunk_at(2),
+            &[
+                158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158,
+                158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 13,
+                13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
+                13, 13, 13, 13, 13, 13, 13, 13, 13, 13
+            ]
+        );
+        assert_eq!(
+            encoded.chunk_at(3),
+            &[
+                157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157,
+                157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 14,
+                14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+                14, 14, 14, 14, 14, 14, 14, 14, 14, 14
+            ]
+        );
+        assert_eq!(
+            encoded.chunk_at(4),
+            &[
+                175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175,
+                175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8
+            ]
+        );
     }
 
     #[test]
@@ -303,12 +365,7 @@ mod tests {
             indices: vec![encoded.chunk_index_at(0), 1, encoded.chunk_index_at(4)].into(),
         };
 
-        let decoded = rs_decode(
-            3,
-            recovery_count,
-            SHARD,
-            to_decode,
-        ).unwrap();
+        let decoded = rs_decode(3, recovery_count, SHARD, to_decode).unwrap();
 
         assert_eq!(decoded.length, 2);
         assert_eq!(decoded.shard_len, encoded.shard_len);
