@@ -1,0 +1,6 @@
+{
+  "scripts": {
+    "build": "wasm-pack build --target nodejs; rm ./pkg/.gitignore"
+  }
+}
+
